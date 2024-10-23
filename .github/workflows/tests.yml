@@ -24,4 +24,4 @@ jobs:
 
     - name: Run tests
       run: |
-        poetry run pytest --cov=TgFun
+        poetry run pytest --cov=tg_fun
