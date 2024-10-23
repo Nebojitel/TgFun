@@ -41,4 +41,4 @@ line_length = 125
 profile = "black"
 
 [tool.poetry.scripts]
-running = 'tg_fun.cli:running_start'
+farming = 'tg_fun.cli:farming_start'

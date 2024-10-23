@@ -7,12 +7,12 @@ from tg_fun.settings import app_settings
 from tg_fun.telegram_client import client
 from tg_fun.trainer import (
     loop,
-    running,
+    farming,
 )
 
-def running_start() -> None:
-    """Start running."""
-    _run(running.main)
+def farming_start() -> None:
+    """Start farming."""
+    _run(farming.main)
 
 
 def _run(main_func: Callable, *args: Any, **kwargs: Any) -> None:
