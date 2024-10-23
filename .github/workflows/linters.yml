@@ -24,8 +24,8 @@ jobs:
 
     - name: Run MyPy
       run: |
-        poetry run mypy TgFun/
+        poetry run mypy tg_fun/
 
     - name: Run flake8
       run: |
-        poetry run flake8 TgFun/
+        poetry run flake8 tg_fun/
