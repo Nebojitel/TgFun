@@ -18,13 +18,13 @@ class AppSettings(BaseSettings):
 
     # required customer settings
     telegram_api_id: int = 123456
-    telegram_api_hash: str = 'u_api_hash_here'
+    telegram_api_hash: str = 'u_api_hash'
 
     # optional customer settings
+    minimum_hp_level_for_grinding: int = Field(default=60, ge=1, le=100)
     notifications_enabled: bool = False
-    use_backup_game_bot: bool = False
     custom_tg_channel: str = ''
-    self_manager_enabled: bool = True
+    self_manager_enabled: bool = False
 
     # developer section
     fast_mode: bool = Field(default=False)
@@ -33,10 +33,8 @@ class AppSettings(BaseSettings):
     game_username: str = 'rf_telegram_bot'
     tlg_client_retries: int = 30
     tlg_client_retry_delay: int = 15
-    trainer_name: str = 'Trainer'
     debug: bool = Field(default=False)
-    message_log_limit: int = 100
-    desktop_notification_timeout: int = 10
+    message_log_limit: int = 1000
     wait_loop_iteration_seconds: int = 3
     show_stats_every_seconds: int = 30 * 60
 

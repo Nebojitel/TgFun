@@ -36,8 +36,8 @@ async def _handler(event: events.NewMessage.Event) -> None:  # noqa: WPS110
         case '!help':
             response_message = '\n'.join([
                 '!exit - force exit',
-                '!stop - pause farming',
-                '!start - resume farming',
+                '!stop - pause running',
+                '!start - resume running',
             ])
 
         case '!exit':
@@ -45,12 +45,12 @@ async def _handler(event: events.NewMessage.Event) -> None:  # noqa: WPS110
             response_message = 'exit request sent'
 
         case '!stop':
-            response_message = 'farming was paused'
-            shared_state.GRINDING_PAUSED = True
+            response_message = 'running was paused'
+            shared_state.PAUSED = True
 
         case '!start':
-            response_message = 'farming was resume'
-            shared_state.GRINDING_PAUSED = False
+            response_message = 'running was resume'
+            shared_state.PAUSED = False
             game_user: types.InputPeerUser = await telegram_client.client.get_input_entity(app_settings.game_username)
             await action.common_actions.ping(game_user.user_id)
 

@@ -3,7 +3,7 @@ import logging
 import time
 from collections import Counter
 
-from tg_fun.notifications import send_desktop_notify
+from tg_fun.notifications import send_custom_channel_notify
 
 
 class StatsCollector:
@@ -64,4 +64,4 @@ async def _send_stats_notify() -> None:
         '\n'.join(averages),
     )
 
-    await send_desktop_notify(message)
+    # await send_custom_channel_notify(message)
