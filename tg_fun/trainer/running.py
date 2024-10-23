@@ -34,6 +34,8 @@ async def main(execution_limit_minutes: int | None = None) -> None:
     game_user: types.InputPeerUser = await client.get_input_entity(game_bot_name)
     logging.info('game user is %s', game_user)
 
+    await client.send_message(game_bot_name, '/buttons')
+
     await _setup_handlers(game_user_id=game_user.user_id)
 
     await loop.run_wait_loop(execution_limit_minutes)
@@ -73,9 +75,12 @@ async def _message_handler(event: events.NewMessage.Event) -> None:
 
 def _select_action_by_event(event: events.NewMessage.Event) -> Callable:
     mapping = [
+        (state.common_states.init, init),
+
         (state.common_states.is_locations, go_to_fight_zone),
 
         (state.common_states.is_monster_found, start_fighting),
+        (state.common_states.is_monster_not_found, search_next),
         (state.common_states.is_win_state, search_next),
 
         (state.common_states.is_town, in_town),
@@ -116,6 +121,21 @@ async def update_available_buttons(event: events.NewMessage.Event, category: str
         logging.warning(f'Кнопки для категории {category} не найдены. Обновление не выполнено.')
 
 
+async def init(event: events.NewMessage.Event) -> None:
+    """Делаем переход инициализацию."""
+    buttons = get_buttons_flat(event)
+
+    if buttons:
+        if any(HEAL in btn.text for btn in buttons):
+            await in_town(event)
+        elif any(TO_FIGHT_ZONE in btn.text for btn in buttons):
+            await go_to_fight_zone(event)
+        elif any(ATTACK in btn.text for btn in buttons):
+            await start_fighting(event)
+    else:
+        logging.warning(f'Кнопки для категории не найдены. Инициализация не выполнена.')
+
+
 async def handle_button_event(button_symbol: str, category: str) -> bool:
     """Обрабатываем нажатие кнопки по символу из указанной категории."""
     global available_buttons
@@ -145,8 +165,14 @@ async def go_to_fight_zone(event: events.NewMessage.Event) -> None:
 async def start_fighting(event: events.NewMessage.Event) -> None:
     """Начинаем бой."""
     await update_available_buttons(event, 'fight_zone_buttons')
-    energy_level = parsers.get_energy_level(event.message.message)
-    if (energy_level <= 0):
+
+    try:
+        energy_level = parsers.get_energy_level(event.message.message)
+    except Exception as e:
+        logging.warning(f'Не удалось получить уровень энергии: {e}')
+        energy_level = None 
+
+    if energy_level is not None and energy_level <= 0:
         logging.info('Мало энергии, ждем 1 час.')
         await asyncio.sleep(3600)
 
@@ -161,13 +187,18 @@ async def start_fighting(event: events.NewMessage.Event) -> None:
 
 async def search_next(event: events.NewMessage.Event) -> None:
     """Начинаем поиск монстра или возвращаемся в город если нет энергии или мало хп."""
-    energy_level = parsers.get_energy_level(event.message.message)
-    hp_level = parsers.get_hp_level(event.message.message)
+    try:
+        energy_level = parsers.get_energy_level(event.message.message)
+        hp_level = parsers.get_hp_level(event.message.message)
+    except Exception as e:
+        logging.warning(f'Не удалось получить уровень энергии или здоровья: {e}')
+        energy_level = None 
+        hp_level = None 
 
-    if hp_level <= app_settings.minimum_hp_level_for_grinding:
+    if hp_level is not None and hp_level <= app_settings.minimum_hp_level_for_grinding:
         logging.info('Мало хп, возвращаемся.')
         await return_to_town()
-    elif energy_level <= 0:
+    elif energy_level is not None and energy_level <= 0:
         logging.info('Мало энергии, ждем 1 час.')
         await asyncio.sleep(3600)
         await handle_button_event(FIND_MONSTER, 'fight_zone_buttons')

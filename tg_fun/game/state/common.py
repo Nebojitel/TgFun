@@ -29,7 +29,14 @@ def is_lose_state(event: events.NewMessage.Event) -> bool:
 def is_alive(event: events.NewMessage.Event) -> bool:
     """Is alive state."""
     message = strip_message(event.message.message)
-    return 'ты снова жив' in message
+    patterns = {
+        'ты снова жив',
+        'ты снова в строю',
+    }
+    for pattern in patterns:
+        if pattern in message:
+            return True
+    return False
 
 
 def is_hp_recovered(event: events.NewMessage.Event) -> bool:
@@ -73,6 +80,19 @@ def is_monster_found(event: events.NewMessage.Event) -> bool:
     return False
 
 
+def is_monster_not_found(event: events.NewMessage.Event) -> bool:
+    """Is monster not found state."""
+    message = strip_message(event.message.message)
+
+    patterns = {
+        'вы ещё не нашли монстра',
+    }
+    for pattern in patterns:
+        if pattern in message:
+            return True
+    return False
+
+
 def is_town(event: events.NewMessage.Event) -> bool:
     """Is town state."""
     message = strip_message(event.message.message)
@@ -81,3 +101,11 @@ def is_town(event: events.NewMessage.Event) -> bool:
         return False
     return 'ты дошел до локации' in message
 
+
+def init(event: events.NewMessage.Event) -> bool:
+    """Init."""
+    message = strip_message(event.message.message)
+    found_buttons = get_buttons_flat(event)
+    if not found_buttons:
+        return False
+    return 'кнопочки' in message
