@@ -5,7 +5,9 @@ import itertools
 from telethon import events, types
 
 TO_LOCATIONS = '☠'
+TO_DANGEONS = '♟'
 HEAL = '💖'
+YES = '✅'
 
 TO_FIGHT_ZONE = '🐣'
 

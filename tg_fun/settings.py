@@ -25,6 +25,7 @@ class AppSettings(BaseSettings):
     notifications_enabled: bool = False
     custom_tg_channel: str = ''
     self_manager_enabled: bool = False
+    farm_dangeons: bool = Field(default=False)
 
     # developer section
     fast_mode: bool = Field(default=False)

@@ -1,101 +1,39 @@
+"""Farming handlers."""
 import logging
-from typing import Callable, Dict, List
+from typing import Dict, List
 
-from telethon import events, types
+from telethon import events
 import asyncio
 
-from tg_fun import stats, wait_utils
-from tg_fun.game import action, parsers, state
-from tg_fun.plugins import manager
+from tg_fun import wait_utils
+from tg_fun.game import parsers
 from tg_fun.settings import app_settings, game_bot_name
 from tg_fun.telegram_client import client
-from tg_fun.trainer import event_logging, loop
-from tg_fun.trainer.handlers import common
-from tg_fun.game.buttons import TO_TOWN, TO_LOCATIONS, TO_FIGHT_ZONE, HEAL, ATTACK, FIND_MONSTER, get_buttons_flat
-
+from tg_fun.game.buttons import TO_TOWN, TO_LOCATIONS, TO_DANGEONS, TO_FIGHT_ZONE, HEAL, ATTACK, FIND_MONSTER, YES, get_buttons_flat
 
 available_buttons: Dict[str, List[str]] = {
     'town_buttons': [],
     'chose_location_buttons': [],
-    'fight_zone_buttons': []
+    'fight_zone_buttons': [],
+    'dangeon_buttons': [],
 }
 
-async def main(execution_limit_minutes: int | None = None) -> None:
-    """Running runner."""
-    local_settings = {
-        'execution_limit_minutes': execution_limit_minutes or 'infinite',
-        'notifications_enabled': app_settings.notifications_enabled,
-        'slow_mode': app_settings.slow_mode,
-    }
-    logging.info(f'start running ({local_settings})')
 
-    logging.info('auth as %s', (await client.get_me()).username)
+async def init(event: events.NewMessage.Event) -> None:
+    """Делаем переход инициализацию."""
+    buttons = get_buttons_flat(event)
 
-    game_user: types.InputPeerUser = await client.get_input_entity(game_bot_name)
-    logging.info('game user is %s', game_user)
-
-    await client.send_message(game_bot_name, '/buttons')
-
-    await _setup_handlers(game_user_id=game_user.user_id)
-
-    await loop.run_wait_loop(execution_limit_minutes)
-    logging.info('end running')
-
-
-async def _setup_handlers(game_user_id: int) -> None:
-    if app_settings.self_manager_enabled:
-        manager.setup(client)
-
-    client.add_event_handler(
-        callback=_message_handler,
-        event=events.NewMessage(
-            incoming=True,
-            from_users=(game_user_id,),
-        ),
-    )
-    client.add_event_handler(
-        callback=_message_handler,
-        event=events.MessageEdited(
-            incoming=True,
-            from_users=(game_user_id,),
-        ),
-    )
-
-
-async def _message_handler(event: events.NewMessage.Event) -> None:
-    await event_logging.log_event_information(event)
-    stats.collector.inc_value('events')
-
-    await event.message.mark_read()
-
-    select_callback = _select_action_by_event(event)
-
-    await select_callback(event)
-
-
-def _select_action_by_event(event: events.NewMessage.Event) -> Callable:
-    mapping = [
-        (state.common_states.init, init),
-
-        (state.common_states.is_locations, go_to_fight_zone),
-
-        (state.common_states.is_monster_found, start_fighting),
-        (state.common_states.is_monster_not_found, search_next),
-        (state.common_states.is_win_state, search_next),
-
-        (state.common_states.is_town, in_town),
-        (state.common_states.is_alive, in_town),
-        (state.common_states.is_hp_recovered, go_to_locations),
-
-        # (state.common_states.is_energy_recovered, to_be_done),
-        # (state.common_states.is_empty_energy, to_be_done),
-    ]
-
-    for check_function, callback_function in mapping:
-        if check_function(event):
-            logging.debug('is %s event', check_function.__name__)
-            return callback_function
-    return common.skip_turn_handler
+    if buttons:
+        if any(HEAL in btn.text for btn in buttons):
+            await in_town(event)
+        elif any(TO_FIGHT_ZONE in btn.text for btn in buttons):
+            await go_to_fight_zone(event)
+        elif any(ATTACK in btn.text for btn in buttons):
+            await start_fighting(event)
+        elif any(TO_DANGEONS in btn.text for btn in buttons):
+            await go_to_dangeon(event)
+    else:
+        logging.warning(f'Кнопки для категории не найдены. Инициализация не выполнена.')
 
 
 async def update_available_buttons(event: events.NewMessage.Event, category: str) -> None:
@@ -116,24 +54,13 @@ async def update_available_buttons(event: events.NewMessage.Event, category: str
             for btn in buttons:
                 available_buttons['fight_zone_buttons'].append(btn.text)
 
+        elif category == 'dangeon_buttons':
+            for btn in buttons:
+                available_buttons['dangeon_buttons'].append(btn.text)
+
         available_buttons = {key: list(set(val)) for key, val in available_buttons.items()}
     else:
         logging.warning(f'Кнопки для категории {category} не найдены. Обновление не выполнено.')
-
-
-async def init(event: events.NewMessage.Event) -> None:
-    """Делаем переход инициализацию."""
-    buttons = get_buttons_flat(event)
-
-    if buttons:
-        if any(HEAL in btn.text for btn in buttons):
-            await in_town(event)
-        elif any(TO_FIGHT_ZONE in btn.text for btn in buttons):
-            await go_to_fight_zone(event)
-        elif any(ATTACK in btn.text for btn in buttons):
-            await start_fighting(event)
-    else:
-        logging.warning(f'Кнопки для категории не найдены. Инициализация не выполнена.')
 
 
 async def handle_button_event(button_symbol: str, category: str) -> bool:
@@ -230,7 +157,7 @@ async def in_town(event: events.NewMessage.Event) -> None:
         logging.warning('Не удалось найти кнопку восстановления здоровья.')
 
 
-async def go_to_locations(event: events.NewMessage.Event) -> None:
+async def go_to_locations(_: events.NewMessage.Event) -> None:
     """Возвращаемся в локации"""
     if any(TO_LOCATIONS in btn for btn in available_buttons['town_buttons']):
         logging.info('Возвращаемся в локации.')
@@ -239,3 +166,54 @@ async def go_to_locations(event: events.NewMessage.Event) -> None:
         await handle_button_event(button_to_press, 'town_buttons')
     else:
         logging.warning('Не удалось найти кнопку для перехода в локации.')
+
+
+async def pick_dangeon(_: events.NewMessage.Event) -> None:
+    """Возвращаемся в данж"""
+    if any(TO_DANGEONS in btn for btn in available_buttons['town_buttons']):
+        logging.info('Возвращаемся в данж.')
+        await wait_utils.wait_for()
+        button_to_press = next(btn for btn in available_buttons['town_buttons'] if TO_DANGEONS in btn)
+        await handle_button_event(button_to_press, 'town_buttons')
+    else:
+        logging.warning('Не удалось найти кнопку для перехода в данж.')
+
+
+async def go_to_dangeon(event: events.NewMessage.Event) -> None:
+    """Возвращаемся в данж"""
+    await update_available_buttons(event, 'dangeon_buttons')
+    if any(TO_DANGEONS in btn for btn in available_buttons['dangeon_buttons']):
+        logging.info('Возвращаемся в данж.')
+        await wait_utils.wait_for()
+        button_to_press = next(btn for btn in available_buttons['dangeon_buttons'] if TO_DANGEONS in btn)
+        await handle_button_event(button_to_press, 'dangeon_buttons')
+    else:
+        logging.warning('Не удалось найти кнопку отправиться в данж.')
+
+
+async def choose_dangeon(_: events.NewMessage.Event) -> None:
+    """Выбираем данж"""
+    await wait_utils.wait_for()
+    await client.send_message(game_bot_name, '/go_dange_10000')
+
+
+async def start_dangeon(event: events.NewMessage.Event) -> None:
+    """Подтвердить запуск данжа."""
+    message = event.message
+    if message.buttons:
+        for row in message.buttons:
+            for button in row:
+                if button.text == '✅Да':
+                    logging.info('Нажимаем inline-кнопку "✅Да".')
+                    await button.click()
+                    return
+    
+    logging.warning('Кнопка "✅Да" не найдена или она не является inline-кнопкой.')
+
+
+async def relaxing(_: events.NewMessage.Event) -> None:
+    """Отдыхаем."""
+    logging.info('Отдыхаем час.')
+    await asyncio.sleep(3600)
+    await client.send_message(game_bot_name, '/buttons')
+
