@@ -1,5 +1,5 @@
 import logging
-from typing import Callable
+from typing import Callable, Dict, List
 
 from telethon import events, types
 import asyncio
@@ -14,10 +14,10 @@ from tg_fun.trainer.handlers import common
 from tg_fun.game.buttons import TO_TOWN, TO_LOCATIONS, TO_FIGHT_ZONE, HEAL, ATTACK, FIND_MONSTER, get_buttons_flat
 
 
-available_buttons = {
+available_buttons: Dict[str, List[str]] = {
     'town_buttons': [],
     'chose_location_buttons': [],
-    'fight_zone_buttons': [],
+    'fight_zone_buttons': []
 }
 
 async def main(execution_limit_minutes: int | None = None) -> None:
